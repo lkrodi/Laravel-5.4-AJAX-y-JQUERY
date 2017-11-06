@@ -1,0 +1,296 @@
+/*Ejecutamos un comando artisan para generar una autenticación y login básica*/
+-> php artisan make:auth
+
+/*Probar que todo salio bien, visualizar en la carpeta public del proyecto y mostrarse el siguiente mensaje en consola*/
+-> Authentication scaffolding generated successfully.
+
+/*Luego de todo eso, se visualiza todo lo que ha creado laravel como views, route, etc. entrando a las carpetas del proyecto*/
+
+/*Ahora creamos la base de datos desde nuestro servidor local xampp, en phpMyAdmin*/
+-> CREATE DATABASE laraveljquery
+
+/*Ahora configuramos el archivo .env del proyecto con el nombre de nuestra bd y el usuaroi root*/
+
+/*Luego vamos a la carpeta database/migrations/ create_users_table y create_resets_table. La segunda nos sirve para recuperar contraseñas*/
+
+/*Ahora instalamos la tabla de migraciones en consola. Esta la principal que maneja laravel*/
+-> php artisan migrate:install
+
+####Problemas:
+ERROR----connection Refuses----ERROR
+#Si surge algún problema al momento de instalar la tabla de migraciones en nuestra BD, es porque quizás el puerto está siendo usado, o la contraseña del usuario root del servidor server está incorrecto. En conclusión el error es por convenciones del servidor y BD
+
+/*Ahora le hacemos un refresh a nuestra BD, para eliminar las tablas y ejecutar las ultimas ediciones que hicimos, en consola:*/
+->php artisan migrate:refresh
+
+####Problemas:
+ERROR----
+SQLSTATE[42000]: Syntax error or access violation: 1071 Specified key was too long; max key length is 767 bytes
+----ERROR
+#Este error se ocasiona porque no se ha definido la longitud máxima de un string. Anteriormente eran de 250 caracteres.
+
+####Solución:
+SOLUTION------
+-Nos vamos a la carpeta y archivo app/Providers/AppServiceProvider.
+-Ahora importamos el trait Schema como la siguiente:
+-> use Illuminate\Support\Facades\Schema;
+-Ahora en dentro del método boot, escribimos lo siguiente:
+-> Schema::defaultStringLength(191);
+--Comentario---: cuando le especificamos esa configuración le estamos indicando que las columnas de la BD de tipo String tomen como máximo 191, Si no es especificado como parémtro dentro de una columna de alguna migración(tabla) entonces asumirá por predeterminado 191 como longitud
+------SOLUTION
+
+/*Luego de haber solucionado el problema anterior, pones en consola lo siguiente:*/
+-> php artisan migrate:refresh
+
+####Problemas:
+ERROR----
+SQLSTATE[42S01]: Base table or view already exists: 1050 Table 'users' already exists
+----ERROR
+#Este error se ocasiona porque como anteriormente la migración anterior no se pudo completar porque tuvimos un error de longitud máxima.
+SOLUTION------
+-Borrar las tablas de nuestra BD manualmente desde nuestro servidor local xampp. en phpMyAdmin:
+->DROP TABLE migrations
+->DROP TABLE users
+-Ahora instalamos de nuevo la migración y le damos un refresh:
+-> php artisan migrate:install
+-> php artisan migrate:refresh
+->Verificamos en nuestro PhpMyAdmin si está todo correcto y listo.
+------SOLUTION
+
+/**Y por último, registramos un nuevo usuario para ver que todo esté funcionando perfectamente!/
+
+/*CAPÍTULO5: Model Factories, DataBaseSeeders y todo lo referente a la población de la BD*/
+
+/*Crearemos nuestro modelo Productos, ejecutamos en consola*/
+-> php artisan make:model -m
+||Nota: al poner -m, le estamos diciendo que cree el modelo y a la misma vez la migración
+
+/*Verificamos en la carpeta app/Products.php el modelo creado y en la carpeta database/migrations/create_table_productos.php*/
+
+/*Editamos nuestra migración de productos y agregamos en nuestro método up:*/
+-> $table->increments('id');
+ 	$table->string('name');
+ 	$table->mediumText('short');
+ 	$table->text('description');
+ 	$table->timestamps();
+
+ /*Ahora ejecutamos la migración para crear la tabla(La refrescamos para que elimine todo y reinstale las nuevas ediciones de nuestras migraciones)*/
+ -> php artisan migrate:refresh
+
+ /*Verificamos en nuestro servidor local xampp, en phpMyAdmin*/
+
+/*Creamos nuestro seeder para inicializar nuestro databaseSeeder para la próxima población de data a la tabla users y productos, en consola*/
+-> php artisan make:seeder UsersTableSeeder
+-> php artisan make:seeder ProductosTableSeeder
+
+/*Ahora verificamos que se hayan creado bien, en la carpeta database/seeds/ lo siguiente:*/
+*ProductosTableSeeder.php
+*UserTableSeeder.php
+
+/*Ahora en esa misma carpeta vamos al archivo DatabaseSeeder.php y agregamos en el método run lo siguiente:*/
+-> $this->call(UserTableSeeder::class);
+-> $this->call(ProductosTableSeeder::class);
+
+/*Importamos los modelos Users y Productos para cada archivo seeder, como lo siguiente:*/
+->App\Users;
+->App\Productos;
+
+/*Ahora en cada Seeder invocamos a factory y le pasamos como parámetro el modelo::class y el total a registros a crear, como lo siguiente:*/
+-> factory(User::class, 12)->create();
+-> factory(Productos::class, 100)->create();
+
+/*Ahora configuramos nuestro Model Factory*/
+->  $factory->define(App\Productos::class, function (Faker\Generator $faker) {
+	return [
+		'name' => $faker->sentence(),
+		'short' => $faker->text(140),
+		'description' => $faker->text('600'),
+	];
+});
+
+/*Y ahora eliminamos las migraciones y lo volvemos a crear junto con los seeders hechos anteriormente, en consola:*/
+-> php artisan migrate:refresh --seed
+
+/*Verificamos que los registros se hayan creado exitosamente en nuestro servidor local xampp, en el phpMyAdmin*/
+
+/*CAPÍTULO 6: PAGINACIÓN Y LISTADO DE PRODUCTOS*/
+
+/*Nos vamos al controlador HomeController de nuestra autenticación e importamos nuestro modelo a usar(Productos) y dentro del método index, colocamos lo siguiente:*/
+-> $productos = Productos::paginate();
+-> return view('home', compact('productos'));
+||Nota: Ahí estamos retornando la vista home y le estamos pasando como parámetro la lista de productos
+
+/*Nos vamos a la carpeta y vista resources/views/home.blade.php y creamos una porción de código blade y php*/
+-> <p>
+		{{ $productos->total() }} registros | pagina {{ $productos->currentPage() }} de {{ $productos->lastPage() }}
+->	</p>
+||Nota:: 
+-total(), obtiene el total de registro de una cierta columna
+-currentPage(), obtiene la página actual de la paginación.
+-lastPage(), obtiene el total de paginaciones
+
+/*Ahora seguimos editanto y creamos la tabla y llenarlas con un foreach*/
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th width="20px">ID</th>
+            <th>Name</th>
+            <th>&nbsp;</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach($productos as $item)
+        <tr>
+            <td width="20/td>
+            <td>{{ $item->name }}</td>
+            <td width="20px"></td>
+        </tr>
+        @endforeach
+    </tbody>
+</table>
+<!--Con esto le colocamos la paginación-->
+ {!! $productos->render() !!}
+
+/*Verificamos que se muestre en nuestra vista Home y listo*/
+
+/*CAPÍTULO 7: Laravel Collective, AJAX y JQuery*/
+
+/*Vamos al directorio routes/web.php y editamos nuestro archivo de rutas*/
+-> Route::DELETE('/eliminar-producto', 'HomeController@destroyProduct')->name('destino/producto');
+
+/*Ahora vamos a nuestra HomeController de autenticación y creamos nuestro método para eliminar un producto*/
+-> public function destroyProduct(Request $request, $id)
+	{
+		if ($request->ajax()) {
+			$producto = Productos::find($id);
+			$producto->delete();
+
+			$productos_total = Productos::all()->count();
+
+			return response()->json([
+				'total' => $productos_total,
+				'mensaje' => $producto->name .'fue eliminado correctamente'
+			]);
+		}
+	}
+||Nota: En esta ocasión utilizamos inyección de dependencias porque el parámetro id será enviado desde un formulario interno para eliminar, mas no como cualquier parámetro. Además porque detecta si es un método AJAX.
+||Nota: if($request->ajax()), pregunta si es una solicitud AJAX
+
+/*Y ahora nos vamos a la vista Home de la autenticación y editamos lo siguiente:*/
+-> <!--Creamos un nuevo div para mostrar el mensaje de alerta-->
+	<div class="alert alert-danger" id="alert"></div>
+	<!--Encapsulamos al párrafo que contiene la oración del total productos, etc. Lo envolvemos en un span-->
+	<span id="productos-total">
+		{{ $productos->total() }}
+	</span>
+
+/*Ahora instalaremos LaravelCollective para el manejo de formularios dinámicos*/
+||Nota: Para seguir las instrucciones de instalación nos vamos a la siguiente web:
+https://laravelcollective.com/
+
+/*Ahora abrimos nuestro formulario para eliminar un producto en la vista Home de la autenticación.*/
+-> {!! Form::open(['route' => ['destroyProduct', $item->id], 'method' => 'DELETE']) !!}
+    <a href="#" class="btn btn-danger">Eliminar</a>
+{!! Form::close() !!}
+||Nota:: Normalmente  se podría poner un form action... pero se usa esto porque contiene una mejor convención hacia las rutas y entre muchas cosas más.
+
+/*Ahora empieza todo el trabajo con AJAX y JQuery*/
+
+/*Creamos dentro de la carpeta public/js el archivo main.js para almacenar nuestro código y AJAX*/
+
+/*Luego creamos un @yield de blade para colocar ahi los scripts, dentro de la vista app.blade(esta carpeta está en resources/views/layouts) al final, de la siguiente manera:*/
+->  @yield('scripts')
+
+/*Luego vamos a la vista Home de autenticacion, y al final creamos un nuevo section para incluir a los scripts js*/
+-> @section('scripts')
+    <script src="{{ asset('js/main.js') }}"></script>
+@endsection
+
+/*Luego editamos una porción de código de nuestra vista Home de autenticacion, en la columna de eliminar dela tabla, colocamos lo siguiente*/
+->  <a href="#" class="btn btn-danger btn-delete">Eliminar</a>
+
+/*Ahora agregamos una porción de código más a nuestra vista home de autenticacion, antes e las etiquetas <table>*/
+-> <div id="alert" class="alert alert-danger"></div>
+||Nota: Estos sirven para identificar el elemento div para mostrar el mensaje
+
+/*Ahora empezamos con nuestro main.js !*/
+
+/*Creamos las siguientes porciones de código inicialmente*/
+-> var alerta = $('#alert');
+   var button = $('.btn-delete');
+   alerta.hide();
+ ||Nota::Con hide(), ocultamos el elemento, es propia de jquery
+
+ /*Finalmente nuestro código jquey es lo siguiente: */
+
+ -----------------------CODIGO JAVASCRIPT-----------------------
+
+/*Capturo el nodo de alerta de mensaje y el boton*/
+var alerta = $('#alert');
+var button = $('.btn-delete');
+
+/*Oculto el nodo de alerta de mensaje inicialmente*/
+alerta.hide()
+
+/*Ejecuto todo el código cuando solo le da click*/
+button.click( function(e) {
+
+	//Con esto detengo el evento
+	e.preventDefault();
+	//Condición para elimnar el producto, si retorna false, no pasa nada.
+	if (! confirm('¿Estás seguro de eliminar el producto?')) {
+		return false;
+	}
+
+	// Selecciona al padre para este nodo(<a>), en este caso tr
+	var row = $(this).parents('tr');
+
+	// Selecciona al padre para este nodo(<form>), en este caso form
+	var form = $(this).parents('form'); 
+
+	//obtener la url
+	var url = form.attr('action');
+
+	//Muestro solo el nodo, sin mensaje
+	alerta.show('slow');
+
+	/*Ejecuto mi petición AJAX de tipo POST*/
+	$.post(url, form.serialize(), function(resp) {
+		//la fila desaparecerá suavemente
+		row.fadeOut();
+		//envío un innerHTML al nodo <span> que muestra el total de productos
+		$('#productos-total').html(resp.total);
+		//envío el innerHTML a la alerta de mensaje
+		alerta.html('<b>'+ resp.mensaje +'</b>');
+	}).fail( function() {
+		////envío el innerHTML a la alerta de mensaje si ocurre algo mal
+		alerta.html('algo salio mal :(');
+	});
+});
+
+ -----------------------FIN DE CODIGO JAVASCRIPT-----------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
